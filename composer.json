@@ -1,0 +1,32 @@
+{
+	"name": "be-lenka/redis",
+	"description": "Redis extension for Venalio",
+	"type": "library",
+	"keywords": [
+		"nette",
+		"venalio",
+		"redis",
+		"cluster"
+	],
+	"license": "BSD-3-Clause",
+	"authors": [
+		{
+			"name": "Milan Felix Šulc",
+			"homepage": "https://f3l1x.io"
+		},
+		{
+			"name": "Milan Sedlák",
+			"email": "milan@blueweb.sk"
+		}
+	],
+	"require": {
+		"php": "^7.1",
+		"nette/application": "^2.4.4",
+		"contributte/redis": "^0.1"
+	},
+	"autoload": {
+		"classmap": [
+			"src/"
+		]
+	}
+}
