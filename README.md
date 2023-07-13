@@ -1,3 +1,3 @@
-Blueweb Redis
+Redis
 =============
 Custom implementation for VSH cluster.
