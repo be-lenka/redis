@@ -21,7 +21,7 @@ class RedisStorage implements IStorage
 		$this->client = $client;
 	}
 
-	public function read($key)
+	public function read(string $key)
 	{
 		$data = $this->client->get($key);
 
@@ -36,7 +36,7 @@ class RedisStorage implements IStorage
 		return NULL;
 	}
 
-	public function write($key, $data, array $dependencies)
+	public function write(string $key, $data, array $dependencies): void
 	{
 		$tags = '';
 		if (isset($dependencies[Cache::TAGS])) {
@@ -58,16 +58,14 @@ class RedisStorage implements IStorage
 		}
 	}
 
-	public function remove($key)
+	public function remove(string $key): void
 	{
-		if (!is_array($key)) {
-			$key = [$key];
-		}
+		$keys = is_array($key) ? $key : [$key];
 
-		$this->client->del($key);
+		$this->client->del($keys);
 	}
 
-	public function clean(array $conditions)
+	public function clean(array $conditions): void
 	{
 		$itemsPerPage = 100;
 		$prefix = $this->client->getPrefix();
@@ -85,7 +83,7 @@ class RedisStorage implements IStorage
 					$count++;
 
 					if ($count == $itemsPerPage) {
-						$this->remove($keysToRemove);
+						$this->client->del($keysToRemove);
 						$keysToRemove = [];
 						$count = 0;
 					}
@@ -94,7 +92,7 @@ class RedisStorage implements IStorage
 		}
 	}
 
-	public function lock($key)
+	public function lock(string $key): void
 	{
 		// Not implemented
 	}

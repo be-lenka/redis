@@ -1,6 +1,5 @@
-# General
+vendor/
+composer.lock
 .idea
-.DS_Store
-.AppleDouble
-.LSOverride
-/nbproject/*
+.phpunit.cache
+
