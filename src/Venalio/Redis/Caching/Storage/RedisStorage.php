@@ -1,138 +1,122 @@
 <?php
-                                                                                                               
-  namespace Venalio\Redis\Caching\Storage;                                                                   
 
-  use Nette\Caching\Cache;
-  use Nette\Caching\IStorage;
-  use Nette\Utils\Strings;                                                                                     
-  use Predis\Collection\Iterator\Keyspace;
-  use Venalio\Redis\RedisClient;                                                                               
-                                                                                                             
-  class RedisStorage implements IStorage                                                                       
-  {
-                                                                                                               
-        /**                                                                                                  
-         * @var RedisClient
-         */
-        private $client;
+namespace Venalio\Redis\Caching\Storage;
 
-        public function __construct(RedisClient $client)
-        {
-                $this->client = $client;
-        }
-                                                                                                               
-        public function read($key)
-        {                                                                                                      
-                $data = $this->client->get($key);                                                            
+use Nette\Caching\Cache;
+use Nette\Caching\IStorage;
+use Nette\Utils\Strings;
+use Predis\Collection\Iterator\Keyspace;
+use Venalio\Redis\RedisClient;
 
-                if ($data) {
-                        try {
-                                return self::unserialize($data);
-                        } catch (\Throwable $e) {
-                                return NULL;                                                                   
-                        }
-                }                                                                                              
-                                                                                                             
-                return NULL;
-        }
+class RedisStorage implements IStorage
+{
 
-        public function write($key, $data, array $dependencies)
-        {
-                $tags = '';
-                if (isset($dependencies[Cache::TAGS])) {                                                       
-                        $tags = '#' . implode('#', array_values($dependencies[Cache::TAGS]));
+	/**
+	 * @var RedisClient
+	 */
+	private $client;
 
-        public function read($key)
-        {
-                $data = $this->client->get($key);
+	public function __construct(RedisClient $client)
+	{
+		$this->client = $client;
+	}
 
-                if ($data) {
-                        try {
-                                return self::unserialize($data);
-                        } catch (\Throwable $e) {
-                                return NULL;
-                        }
-                }
+	public function read($key)
+	{
+		$data = $this->client->get($key);
 
-                return NULL;
-        }
+		if ($data) {
+			try {
+				return self::unserialize($data);
+			} catch (\Throwable $e) {
+				return NULL;
+			}
+		}
 
-        public function write($key, $data, array $dependencies)
-        {
-                $tags = '';
-                if (isset($dependencies[Cache::TAGS])) {
-                        $tags = '#' . implode('#', array_values($dependencies[Cache::TAGS]));
-                        $key .= $tags;
-                }
+		return NULL;
+	}
 
-                if (isset($dependencies[Cache::EXPIRATION])) {
-                        $expiration = (int) $dependencies[Cache::EXPIRATION];
+	public function write($key, $data, array $dependencies)
+	{
+		$tags = '';
+		if (isset($dependencies[Cache::TAGS])) {
+			$tags = '#' . implode('#', array_values($dependencies[Cache::TAGS]));
+			$key .= $tags;
+		}
 
-                        if (isset($dependencies[Cache::SLIDING]) && $dependencies[Cache::SLIDING] !== TRUE) {
-                                $this->client->set($key, self::serialize($data));
-                                $this->client->expireat($key, time() + $expiration);
-                        } else {
-                                $this->client->setex($key, $expiration, self::serialize($data));
-                        }
-                } else {
-                        $this->client->set($key, self::serialize($data));
-                }
-        }
+		if (isset($dependencies[Cache::EXPIRATION])) {
+			$expiration = (int) $dependencies[Cache::EXPIRATION];
 
-        public function remove($key)
-        {
-                if (!is_array($key)) {
-                        $key = [$key];
-                }
+			if (isset($dependencies[Cache::SLIDING]) && $dependencies[Cache::SLIDING] !== TRUE) {
+				$this->client->set($key, self::serialize($data));
+				$this->client->expireat($key, time() + $expiration);
+			} else {
+				$this->client->setex($key, $expiration, self::serialize($data));
+			}
+		} else {
+			$this->client->set($key, self::serialize($data));
+		}
+	}
 
-                $this->client->del($key);
-        }
+	public function remove($key)
+	{
+		if (!is_array($key)) {
+			$key = [$key];
+		}
 
-        public function clean(array $conditions)
-        {
-                $itemsPerPage = 100;
-                $prefix = $this->client->getPrefix();
-                if (isset($conditions[Cache::ITEMS]) && is_int($conditions[Cache::ITEMS]) && $conditions[Cache::ITEMS] > 0) {
-                        $itemsPerPage = $conditions[Cache::ITEMS];
-                }
+		$this->client->del($key);
+	}
 
-                if (isset($conditions[Cache::TAGS])) {
-                        $keysToRemove = [];
-                        $count = 0;
-                        foreach ($conditions[Cache::TAGS] as $tag) {
-                                $tagKey = '#' . $tag;
-                                foreach (new Keyspace($this->client, '*' . $tagKey . '*', $itemsPerPage) as $key) {
-                                        $keysToRemove[] = $prefix ? substr($key, strlen($prefix)) : $key;
-                                        $count++;
+	public function clean(array $conditions)
+	{
+		$itemsPerPage = 100;
+		$prefix = $this->client->getPrefix();
+		if (isset($conditions[Cache::ITEMS]) && is_int($conditions[Cache::ITEMS]) && $conditions[Cache::ITEMS] > 0) {
+			$itemsPerPage = $conditions[Cache::ITEMS];
+		}
 
-                                        if ($count == $itemsPerPage) {
-                                                $this->remove($keysToRemove);
-                                                $keysToRemove = [];
-                                                $count = 0;                                                                                                                                                    
-                                        }
-                                }                                                                                                                                                                              
-                        }                                                                                                                                                                                    
+		if (isset($conditions[Cache::TAGS])) {
+			$keysToRemove = [];
+			$count = 0;
+			foreach ($conditions[Cache::TAGS] as $tag) {
+				$tagKey = '#' . $tag;
+				foreach (new Keyspace($this->client, '*' . $tagKey . '*', $itemsPerPage) as $key) {
+					$keysToRemove[] = $prefix ? substr($key, strlen($prefix)) : $key;
+					$count++;
 
-                        // Flush any remaining keys collected after the batched loop
-                        if (!empty($keysToRemove)) {
-                                $this->remove($keysToRemove);
-                        }                                                                                                                                                                                      
-                }
-        }                                                                                                                                                                                                      
-                                                                                                                                                                                                             
-        public function lock($key)
-        {
-                // Not implemented
-        }
+					if ($count == $itemsPerPage) {
+						$this->remove($keysToRemove);
+						$keysToRemove = [];
+						$count = 0;
+					}
+				}
+			}
 
-        private static function serialize($data)
-        {
-                return serialize($data);
-        }                                                                                                                                                                                                      
-   
-        private static function unserialize($data)                                                                                                                                                             
-        {                                                                                                                                                                                                    
-                return unserialize($data);
-        }
+			// Flush any remaining keys collected after the batched loop.
+			// TODO: upstream PR to be-lenka/redis — without this, clean() silently
+			// drops the last partial batch (any keys count < $itemsPerPage are never
+			// passed to remove()), so tag-based invalidation does not work for
+			// small tag sets. This local patch will be overwritten by composer install
+			// until the fix lands upstream.
+			if (!empty($keysToRemove)) {
+				$this->remove($keysToRemove);
+			}
+		}
+	}
 
-  }
+	public function lock($key)
+	{
+		// Not implemented
+	}
+
+	private static function serialize($data)
+	{
+		return serialize($data);
+	}
+
+	private static function unserialize($data)
+	{
+		return unserialize($data);
+	}
+
+}
