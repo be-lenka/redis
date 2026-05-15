@@ -91,6 +91,16 @@ class RedisStorage implements IStorage
 					}
 				}
 			}
+
+			// Flush any remaining keys collected after the batched loop.
+			// TODO: upstream PR to be-lenka/redis — without this, clean() silently
+			// drops the last partial batch (any keys count < $itemsPerPage are never
+			// passed to remove()), so tag-based invalidation does not work for
+			// small tag sets. This local patch will be overwritten by composer install
+			// until the fix lands upstream.
+			if (!empty($keysToRemove)) {
+				$this->remove($keysToRemove);
+			}
 		}
 	}
 
